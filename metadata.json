@@ -1,0 +1,7 @@
+{
+  "name": "Math Tutor Chatbot",
+  "description": "An AI-powered chatbot to help 8th-grade students learn algebra in Hebrew. The bot guides students with hints and questions, rather than giving direct answers, to foster independent thinking. It supports uploading images of problems for assistance.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
