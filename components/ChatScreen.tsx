@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { useChat } from '../hooks/useChat';
 import { ChatConfig, Message, Role } from '../types';
@@ -167,7 +166,7 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ config, onReset }) => {
                                 תרגיל לדוגמא
                             </button>
                              <button onClick={handleUploadClick} className="px-4 py-2 bg-white dark:bg-gray-700 border border-blue-500 text-blue-500 dark:text-blue-400 rounded-full text-sm font-semibold hover:bg-blue-50 dark:hover:bg-gray-600 transition-colors shadow-sm">
-                                להעלות תרגיל
+                                לצרף צילום תרגיל
                             </button>
                         </div>
                     )}
@@ -178,14 +177,14 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ config, onReset }) => {
             <footer className="bg-white dark:bg-gray-800 p-3 border-t dark:border-gray-700">
                 <div className="max-w-4xl mx-auto flex items-center gap-2">
                     <input type="file" accept="image/*" ref={fileInputRef} onChange={handleFileUpload} className="hidden" />
-                    <button onClick={() => fileInputRef.current?.click()} className={`p-2 rounded-full transition-colors ${imageBase64 ? 'bg-blue-500 text-white' : 'hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400'}`}>
+                    <button onClick={handleUploadClick} title="צרף צילום תרגיל" className={`p-2 rounded-full transition-colors ${imageBase64 ? 'bg-blue-500 text-white' : 'hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400'}`}>
                         <UploadIcon />
                     </button>
                     <textarea
                         value={inputText}
                         onChange={(e) => setInputText(e.target.value)}
                         onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }}}
-                        placeholder="כתוב הודעה או העלה תמונה של תרגיל..."
+                        placeholder="כתוב הודעה או צרף צילום של תרגיל..."
                         className="flex-1 p-3 bg-gray-100 dark:bg-gray-700 rounded-xl resize-none border-transparent focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         rows={1}
                     />

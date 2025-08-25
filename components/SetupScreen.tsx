@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { StudyLevel } from '../types';
 import { TOPICS } from '../constants';

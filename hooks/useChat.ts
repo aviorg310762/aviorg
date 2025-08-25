@@ -1,71 +1,90 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import type { Chat } from "@google/genai";
 import { Message, Role, ChatConfig } from '../types';
-import { initializeChat, sendChatMessage } from '../services/geminiService';
+import { getChatStream } from '../services/geminiService';
 
 export const useChat = (config: ChatConfig) => {
     const [messages, setMessages] = useState<Message[]>([]);
     const [isLoading, setIsLoading] = useState<boolean>(true);
-    const chatRef = useRef<Chat | null>(null);
+    const [error, setError] = useState<string | null>(null);
 
+    const processStream = useCallback(async (stream: ReadableStream<Uint8Array>) => {
+        const reader = stream.getReader();
+        const decoder = new TextDecoder();
+        
+        const botMessageId = Date.now().toString();
+        let botMessage: Message = { id: botMessageId, role: Role.BOT, text: '' };
+        setMessages(prev => [...prev, botMessage]);
+
+        let fullText = '';
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            fullText += decoder.decode(value, { stream: true });
+            setMessages(prev => prev.map(m => m.id === botMessageId ? { ...m, text: fullText } : m));
+        }
+    }, []);
+
+    // Initial message effect
     useEffect(() => {
-        const init = async () => {
+        const getInitialMessage = async () => {
             setIsLoading(true);
-            const chat = initializeChat(config);
-            if(chat) {
-                chatRef.current = chat;
-                const stream = await sendChatMessage(chat, "התחל את השיחה");
+            setError(null);
+            try {
+                const stream = await getChatStream(config, [], "התחל את השיחה");
                 if (stream) {
-                    const botMessageId = Date.now().toString();
-                    let botMessage: Message = { id: botMessageId, role: Role.BOT, text: '' };
-                    setMessages([botMessage]);
-                    
-                    let fullText = '';
-                    for await (const chunk of stream) {
-                        fullText += chunk.text || '';
-                        setMessages(prev => prev.map(m => m.id === botMessageId ? { ...m, text: fullText } : m));
-                    }
+                    await processStream(stream);
                 }
-            } else {
-                setMessages([{
-                    id: 'error',
-                    role: Role.BOT,
-                    text: 'שגיאה: מפתח ה-API של Gemini אינו מוגדר. לא ניתן להתחיל שיחה.'
-                }]);
+            } catch (e) {
+                console.error(e);
+                setError('שגיאה בתקשורת עם השרת.');
             }
             setIsLoading(false);
         };
-        init();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [config]);
-    
+        getInitialMessage();
+    }, [config, processStream]);
+
     const sendMessage = useCallback(async (text: string, imageBase64?: string) => {
-        if (isLoading || !chatRef.current) return;
-        
+        if (isLoading) return;
+
         setIsLoading(true);
-        const userMessage: Message = { id: Date.now().toString(), role: Role.USER, text, image: imageBase64 ? `data:image/jpeg;base64,${imageBase64}` : undefined };
+        setError(null);
+        const userMessage: Message = { 
+            id: Date.now().toString(), 
+            role: Role.USER, 
+            text, 
+            image: imageBase64 ? `data:image/jpeg;base64,${imageBase64}` : undefined 
+        };
         
-        setMessages(prev => [...prev, userMessage]);
+        const currentMessages = [...messages, userMessage];
+        setMessages(currentMessages);
 
-        const stream = await sendChatMessage(chatRef.current, text, imageBase64);
-        
-        if (stream) {
-            let botMessage: Message = { id: (Date.now() + 1).toString(), role: Role.BOT, text: '' };
-            setMessages(prev => [...prev, botMessage]);
+        const history = currentMessages.slice(0, -1).map(msg => ({
+            role: msg.role === Role.USER ? 'user' : 'model',
+            parts: [{ text: msg.text }] // Note: History doesn't include images for simplicity
+        }));
 
-            let fullText = '';
-            for await (const chunk of stream) {
-                fullText += chunk.text || '';
-                setMessages(prev => prev.map(m => m.id === botMessage.id ? { ...m, text: fullText } : m));
+        try {
+            const stream = await getChatStream(config, history, text, imageBase64);
+            if(stream) {
+                await processStream(stream);
             }
-        } else {
-             const errorMsg: Message = { id: (Date.now() + 1).toString(), role: Role.BOT, text: 'התרחשה שגיאה בתקשורת עם השרת.' };
-             setMessages(prev => [...prev, errorMsg]);
+        } catch (e) {
+            console.error(e);
+            setError('שגיאה בתקשורת עם השרת.');
         }
         
         setIsLoading(false);
-
-    }, [isLoading]);
+    }, [isLoading, messages, config, processStream]);
+    
+    useEffect(() => {
+        if(error) {
+            setMessages(prev => [...prev, {
+                id: 'error-' + Date.now(),
+                role: Role.BOT,
+                text: error
+            }]);
+        }
+    }, [error]);
 
     return { messages, isLoading, sendMessage };
 };
